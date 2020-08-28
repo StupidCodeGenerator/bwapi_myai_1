@@ -2,6 +2,7 @@
 #include "UnitBrain.h"
 #include "utils.h"
 #include "MyAiModule.h"
+#include "UnitBrain_CommandCenter.h"
 
 int UnitBrainManager::OnInit() {
 
@@ -22,11 +23,11 @@ int UnitBrainManager::OnInit() {
 int UnitBrainManager::OnUpdate() {
 
 	m_DeadList.clear();
-	
+
 	// Update,并且甄别出死掉的Brain
 	std::map<int, UnitBrain*>::iterator fuckIT = m_UnitBrainMap.begin();
 	for (fuckIT; fuckIT != m_UnitBrainMap.end(); fuckIT++) {
-		if (fuckIT->second->OnUpdate() < 0 || fuckIT->second->m_UnitID != fuckIT->first) {
+		if (fuckIT->second->OnUpdate() < 0 || fuckIT->second->GetUnitID() != fuckIT->first) {
 			m_DeadList.push_back(fuckIT->first);
 		}
 	}
@@ -43,25 +44,42 @@ int UnitBrainManager::OnUpdate() {
 
 
 //
-//	不需要OnDestory, 因为在Update中会判定如果此单位找不到了,Update返回-1, Manager干死他即可
-//	OnCreate事件触发的时候, getUnits并不会找到这个Unit,所以事实上会触发销毁.
-//	解决的办法是,不用这个事件,它不靠谱. 
-//	在Update中有一个遍历过程,遍历过程修改了Unit表, 然后根据Unit表更新UnitBrain表.
-//	也就是, 如果一个Unit的ID,无对应的Brain,则创建Brain
-//	然后Brain自己会判定Update中消失的Brain
+//	创建一个UnitBrain, 根据类型进行区分, 创建的是UnitBrain的子类
+//	另外, 销毁在Update中, 不是事件中
 //
-int UnitBrainManager::CreateBrain(int unitID) {
+int UnitBrainManager::CreateBrain(BWAPI::Unit unit) {
 
-	UnitBrain* pFuckBrain = new UnitBrain();
+	if (!unit) {
+		return FUCK_ERR__NULL_UNIT;
+	}
 
-	int errOfInit = pFuckBrain->OnInit(unitID);
+	UnitBrain* pFuckBrain = NULL;
+
+	// 根据
+	switch (unit->getType()) {
+	default:
+		pFuckBrain = NULL;
+
+	case BWAPI::UnitTypes::Terran_Command_Center:
+		pFuckBrain = new UnitBrain_CommandCenter();
+		break;
+	case BWAPI::UnitTypes::Terran_SCV:
+		// TODO: Create a SCV UnitBrain
+		break;
+	}
+
+	if (!pFuckBrain) {
+		return FUCK_ERR__UNKNOWN_UNIT_TYPE;
+	}
+
+	int errOfInit = pFuckBrain->OnInit(unit->getID());
 	if (errOfInit < 0) {
 		SAFE_DELETE(pFuckBrain);
 		return errOfInit;
 	}
 
-	m_UnitBrainMap.insert(make_pair(unitID, pFuckBrain));
-	
+	m_UnitBrainMap.insert(make_pair(unit->getID(), pFuckBrain));
+
 	return FUCK_SUCCESS;
 }
 

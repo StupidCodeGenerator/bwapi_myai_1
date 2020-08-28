@@ -5,10 +5,13 @@ class UnitBrain {
 
 public:
 
-	int m_UnitID = 0;
+	// 获得对应Unit的UnitID
+	virtual int GetUnitID() = 0;
 
-	int OnInit(int unitID);
+	// 初始化
+	virtual int OnInit(int unitID) = 0;
 
-	int OnUpdate();
+	// 逻辑刷新
+	virtual int OnUpdate() = 0;
 
 };

@@ -17,7 +17,7 @@ public:
 
 	int OnUpdate();
 
-	int CreateBrain(int unitID);
+	int CreateBrain(BWAPI::Unit unit);
 
 	UnitBrain* FindBrain(int unitID);
 };

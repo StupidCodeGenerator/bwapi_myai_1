@@ -14,17 +14,21 @@ public:
 
 	UnitBrainManager* m_pUnitBrainManager;
 
+	//	Unit表
 	//
 	//	事件驱动, UnitCreate的时候 +
 	//	UnitDestory的时候 -
-	//
 	std::map<int, BWAPI::Unit> m_UnitMap;
 
-	//
 	//	尝试查找Unit,找不到返回NULL(UNIT本来就是指针类型)
-	//
 	BWAPI::Unit FindUnit(int unitID);
 
+	int GetMoney(); // Minerals
+	int GetGas();
+	int GetSupply();  // Remains
+
+	//	获得指定类型的Unit的数量
+	int GetUnitCount(BWAPI::UnitType unitType);
 
 	DWORD m_LastUpdateTime = 0;      // 我只在WindowsAPI里面用DWORD, 我讨厌这个类型
 	// 

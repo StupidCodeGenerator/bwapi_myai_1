@@ -10,6 +10,8 @@
 
 #include "utils.h"
 
+#define SELF Broodwar->self()
+
 MyAiModule* AI_MODULE = NULL;
 
 using namespace BWAPI;
@@ -29,6 +31,29 @@ BWAPI::Unit MyAiModule::FindUnit(int unitID) {
 	}
 }
 
+int MyAiModule::GetMoney() {
+	return SELF->minerals();
+}
+
+int MyAiModule::GetGas() {
+	return SELF->gas();
+}
+
+int MyAiModule::GetSupply() {
+	return (SELF->supplyTotal() - SELF->supplyUsed()) / 2;       // because of the zerglings
+}
+
+int MyAiModule::GetUnitCount(BWAPI::UnitType unitType) {
+	int output = 0;
+	std::map<int, Unit>::iterator fuckIT = m_UnitMap.begin();
+	for (fuckIT; fuckIT != m_UnitMap.end(); fuckIT++) {
+		if (fuckIT->second && fuckIT->second->getType() == unitType) {
+			output++;
+		}
+	}
+
+	return output;
+}
 
 
 int MyAiModule::OnUpdate() {
@@ -117,10 +142,10 @@ void MyAiModule::onUnitHide(BWAPI::Unit unit) {
 // 某单位被创建, 在建造中的也叫创建, 包括在兵营中正在读条的枪兵.
 void MyAiModule::onUnitCreate(BWAPI::Unit unit) {
 	onSendText("MyAiModule::onUnitCreate ");
-	if (unit && unit->getPlayer()->getID() == Broodwar->self()->getID()) {
+	if (unit && unit->getPlayer()->getID() == SELF->getID()) {
 		m_UnitMap.insert(make_pair(unit->getID(), unit));
 		if (m_pUnitBrainManager) {
-			m_pUnitBrainManager->CreateBrain(unit->getID());
+			m_pUnitBrainManager->CreateBrain(unit);
 		}
 	}
 }
@@ -153,6 +178,6 @@ void MyAiModule::onUnitComplete(BWAPI::Unit unit) {
 void MyAiModule::LogOnScreen() {
 	if (m_pUnitBrainManager)
 	{
-		Broodwar->drawTextScreen(0, 0, "%d / %d / %d", m_UnitMap.size(), Broodwar->self()->getUnits().size(), m_pUnitBrainManager->m_UnitBrainMap.size());
+		Broodwar->drawTextScreen(0, 0, "%d / %d / %d", m_UnitMap.size(), SELF->getUnits().size(), m_pUnitBrainManager->m_UnitBrainMap.size());
 	}
 }	
