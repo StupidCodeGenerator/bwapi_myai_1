@@ -2,11 +2,21 @@
 #include <BWAPI.h>
 #include <Windows.h>
 
+#define FIND_UNIT(X) (BWAPI::Broodwar->getUnit((X)))
+#define SELF (BWAPI::Broodwar->self())
+#define SCREEN_X(X) ((X) - BWAPI::Broodwar->getScreenPosition().x)
+#define SCREEN_Y(Y) ((Y) - BWAPI::Broodwar->getScreenPosition().y)
+
+#define MINERALS_MAP AI_MODULE->m_pResourceManager->m_MineralsMap
+
 using namespace std;
 
 // Remember not to use "Broodwar" in any global class constructor!
 
+
+
 class UnitBrainManager;
+class ResourceManager;
 
 class MyAiModule : public BWAPI::AIModule
 {
@@ -14,14 +24,10 @@ public:
 
 	UnitBrainManager* m_pUnitBrainManager;
 
-	//	Unit表
-	//
-	//	事件驱动, UnitCreate的时候 +
-	//	UnitDestory的时候 -
-	std::map<int, BWAPI::Unit> m_UnitMap;
+	ResourceManager* m_pResourceManager;
 
-	//	尝试查找Unit,找不到返回NULL(UNIT本来就是指针类型)
-	BWAPI::Unit FindUnit(int unitID);
+	//	尝试查找某矿, 找不到返回NULL(这个包含类型判断)
+	BWAPI::Unit FindMinerals(int unitID);
 
 	int GetMoney(); // Minerals
 	int GetGas();

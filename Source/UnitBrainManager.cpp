@@ -3,6 +3,7 @@
 #include "utils.h"
 #include "MyAiModule.h"
 #include "UnitBrain_CommandCenter.h"
+#include "UnitBrain_SCV.h"
 
 int UnitBrainManager::OnInit() {
 
@@ -14,6 +15,7 @@ int UnitBrainManager::OnInit() {
 		}
 	}
 	m_UnitBrainMap.clear();
+	m_CommandCenters.clear();
 
 	return FUCK_SUCCESS;
 
@@ -29,6 +31,7 @@ int UnitBrainManager::OnUpdate() {
 	for (fuckIT; fuckIT != m_UnitBrainMap.end(); fuckIT++) {
 		if (fuckIT->second->OnUpdate() < 0 || fuckIT->second->GetUnitID() != fuckIT->first) {
 			m_DeadList.push_back(fuckIT->first);
+			SAFE_DELETE(fuckIT->second);  // 顺便给second释放了
 		}
 	}
 
@@ -43,14 +46,30 @@ int UnitBrainManager::OnUpdate() {
 }
 
 
+int UnitBrainManager::OnDraw() {
+	std::map<int, UnitBrain*>::iterator fuckIT = m_UnitBrainMap.begin();
+	for (fuckIT; fuckIT != m_UnitBrainMap.end(); fuckIT++) {
+		if (fuckIT->second) {
+			fuckIT->second->OnDraw();
+		}
+	}
+
+	return FUCK_SUCCESS;
+}
+
+
 //
 //	创建一个UnitBrain, 根据类型进行区分, 创建的是UnitBrain的子类
 //	另外, 销毁在Update中, 不是事件中
 //
 int UnitBrainManager::CreateBrain(BWAPI::Unit unit) {
 
-	if (!unit) {
+	if (!unit || !unit->exists()) {
 		return FUCK_ERR__NULL_UNIT;
+	}
+
+	if (m_UnitBrainMap.find(unit->getID()) != m_UnitBrainMap.end()) {
+		return FUCK_ERR__UNIT_ALREADY_IN;
 	}
 
 	UnitBrain* pFuckBrain = NULL;
@@ -59,12 +78,13 @@ int UnitBrainManager::CreateBrain(BWAPI::Unit unit) {
 	switch (unit->getType()) {
 	default:
 		pFuckBrain = NULL;
-
+		break;
 	case BWAPI::UnitTypes::Terran_Command_Center:
 		pFuckBrain = new UnitBrain_CommandCenter();
+		m_CommandCenters.push_back(unit->getID());
 		break;
 	case BWAPI::UnitTypes::Terran_SCV:
-		// TODO: Create a SCV UnitBrain
+		pFuckBrain = new UnitBrain_SCV();
 		break;
 	}
 
@@ -94,5 +114,14 @@ UnitBrain* UnitBrainManager::FindBrain(int unitID) {
 	}
 	else {
 		return fuckIT->second;
+	}
+}
+
+
+void UnitBrainManager::RefreshCommmandCenterMapInfo() {
+	std::list<int>::iterator fuckIT = m_CommandCenters.begin();
+	for (fuckIT; fuckIT != m_CommandCenters.end(); fuckIT++) {
+		UnitBrain_CommandCenter* pBrain = (UnitBrain_CommandCenter*)(FindBrain(*fuckIT));
+		pBrain->RefreshBuildableTiles();
 	}
 }

@@ -7,10 +7,10 @@
 
 #include "UnitBrainManager.h"
 #include "UnitBrain.h"
-
+#include "ResourceManager.h"
 #include "utils.h"
 
-#define SELF Broodwar->self()
+
 
 MyAiModule* AI_MODULE = NULL;
 
@@ -21,13 +21,13 @@ using namespace std;
 
 
 
-BWAPI::Unit MyAiModule::FindUnit(int unitID) {
-	std::map<int, BWAPI::Unit>::iterator fuckIT = m_UnitMap.find(unitID);
-	if (fuckIT == m_UnitMap.end()) {
+BWAPI::Unit MyAiModule::FindMinerals(int unitID) {
+	BWAPI::Unit output = FIND_UNIT(unitID);
+	if (!output || !output->exists() || !output->getType().isMineralField()) {
 		return NULL;
 	}
 	else {
-		return fuckIT->second;
+		return output;
 	}
 }
 
@@ -45,13 +45,14 @@ int MyAiModule::GetSupply() {
 
 int MyAiModule::GetUnitCount(BWAPI::UnitType unitType) {
 	int output = 0;
-	std::map<int, Unit>::iterator fuckIT = m_UnitMap.begin();
-	for (fuckIT; fuckIT != m_UnitMap.end(); fuckIT++) {
-		if (fuckIT->second && fuckIT->second->getType() == unitType) {
+
+	BWAPI::Unitset myUnits = BWAPI::Broodwar->self()->getUnits();
+	BWAPI::Unitset::iterator fuckIT = myUnits.begin();
+	for (fuckIT; fuckIT != myUnits.end(); fuckIT++) {
+		if ((*fuckIT)->getType() == unitType) {
 			output++;
 		}
 	}
-
 	return output;
 }
 
@@ -62,17 +63,24 @@ int MyAiModule::OnUpdate() {
 		m_pUnitBrainManager->OnUpdate();
 	}
 
+	if (m_pResourceManager) {
+		m_pResourceManager->OnUpdate();
+	}
+
 	return FUCK_SUCCESS;
 }
 
 
 
 void MyAiModule::onStart() {
-	
+
 	AI_MODULE = this;
-	
+
 	this->m_pUnitBrainManager = new UnitBrainManager();
 	this->m_pUnitBrainManager->OnInit();
+
+	this->m_pResourceManager = new ResourceManager();
+	this->m_pResourceManager->OnInit();
 
 	// Enable the UserInput flag, which allows us to control the bot and type messages.
 	Broodwar->enableFlag(Flag::UserInput);
@@ -123,43 +131,51 @@ void MyAiModule::onNukeDetect(BWAPI::Position target) {
 }
 
 void MyAiModule::onUnitDiscover(BWAPI::Unit unit) {
-	onSendText("MyAiModule::onUnitDiscover ");
+	if (!unit) {
+		return;
+	}
+	if (unit->getType().isMineralField()) {
+		if (m_pResourceManager) {
+			m_pResourceManager->CreateMineralExtend(unit);
+			onSendText("New Mineral Found");
+		}
+	}
 }
 
 void MyAiModule::onUnitEvade(BWAPI::Unit unit) {
-//	onSendText("MyAiModule::onUnitEvade ");
+	//	onSendText("MyAiModule::onUnitEvade ");
 }
 
 // 某单位出现,包括己方单位,敌方单位
 void MyAiModule::onUnitShow(BWAPI::Unit unit) {
-//	onSendText("MyAiModule::onUnitShow ");
+	//	onSendText("MyAiModule::onUnitShow ");
 }
 
 void MyAiModule::onUnitHide(BWAPI::Unit unit) {
-//	onSendText("MyAiModule::onUnitHide ");
+	//	onSendText("MyAiModule::onUnitHide ");
 }
 
 // 某单位被创建, 在建造中的也叫创建, 包括在兵营中正在读条的枪兵.
 void MyAiModule::onUnitCreate(BWAPI::Unit unit) {
 	onSendText("MyAiModule::onUnitCreate ");
 	if (unit && unit->getPlayer()->getID() == SELF->getID()) {
-		m_UnitMap.insert(make_pair(unit->getID(), unit));
 		if (m_pUnitBrainManager) {
 			m_pUnitBrainManager->CreateBrain(unit);
 		}
+	}
+
+	// TEST
+	if (m_pUnitBrainManager) {
+		m_pUnitBrainManager->RefreshCommmandCenterMapInfo();
 	}
 }
 
 void MyAiModule::onUnitDestroy(BWAPI::Unit unit) {
 	onSendText("MyAiModule::onUnitDestroy ");
-	if (m_UnitMap.find(unit->getID()) != m_UnitMap.end()) {
-		m_UnitMap.erase(unit->getID());
-		// the brain will auto remove in update
-	}
 }
 
 void MyAiModule::onUnitMorph(BWAPI::Unit unit) {
-//	onSendText("MyAiModule::onUnitMorph ");
+	//	onSendText("MyAiModule::onUnitMorph ");
 }
 
 void MyAiModule::onUnitRenegade(BWAPI::Unit unit) {
@@ -176,8 +192,18 @@ void MyAiModule::onUnitComplete(BWAPI::Unit unit) {
 
 
 void MyAiModule::LogOnScreen() {
-	if (m_pUnitBrainManager)
-	{
-		Broodwar->drawTextScreen(0, 0, "%d / %d / %d", m_UnitMap.size(), SELF->getUnits().size(), m_pUnitBrainManager->m_UnitBrainMap.size());
+
+	Broodwar->drawTextScreen(10, 10, "Tiles: %d, %d", Broodwar->mapWidth(), Broodwar->mapHeight());
+
+	if (m_pUnitBrainManager) {
+		m_pUnitBrainManager->OnDraw();
 	}
-}	
+
+	if (m_pResourceManager) {
+		m_pResourceManager->OnDraw();
+	}
+
+	//for (auto &u : Broodwar->getAllUnits()) {
+	//	Broodwar->drawTextMap(u->getPosition().x, u->getPosition().y, "%d", u->getID());
+	//}
+}

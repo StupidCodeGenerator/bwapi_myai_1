@@ -14,4 +14,6 @@ public:
 	// 逻辑刷新
 	virtual int OnUpdate() = 0;
 
+	// 在屏幕上画东西
+	virtual int OnDraw() = 0;
 };
