@@ -38,7 +38,6 @@ int ResourceManager::OnUpdate() {
 	return FUCK_SUCCESS;
 }
 
-
 int ResourceManager::CreateMineralExtend(BWAPI::Unit unit) {
 	if (!unit || !unit->exists()) {
 		return FUCK_ERR__NULL_UNIT;
@@ -153,6 +152,9 @@ int ResourceManager::RemoveSCV_of_Mineral(int mineralUnitID) {
 
 
 void ResourceManager::OnDraw() {
+
+	int time = BWAPI::Broodwar->elapsedTime();
+
 	std::map<int, MineralExtend*>::iterator fuckIT = m_MineralsMap.begin();
 	for (fuckIT; fuckIT != m_MineralsMap.end(); fuckIT++) {
 		BWAPI::Unit u = FIND_UNIT(fuckIT->second->m_UnitID);

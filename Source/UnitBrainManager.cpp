@@ -58,6 +58,17 @@ int UnitBrainManager::OnDraw() {
 }
 
 
+int UnitBrainManager::OnUnitCreate(BWAPI::Unit unit) {
+	if (unit && unit->getPlayer()->getID() == SELF->getID()) {
+		CreateBrain(unit);
+	}
+
+	RefreshCommmandCenterMapInfo();
+
+	return FUCK_SUCCESS;
+}
+
+
 //
 //	创建一个UnitBrain, 根据类型进行区分, 创建的是UnitBrain的子类
 //	另外, 销毁在Update中, 不是事件中

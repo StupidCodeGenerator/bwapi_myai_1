@@ -22,6 +22,8 @@ public:
 
 	int OnDraw();
 
+	int OnUnitCreate(BWAPI::Unit unit);
+
 	int CreateBrain(BWAPI::Unit unit);
 
 	UnitBrain* FindBrain(int unitID);

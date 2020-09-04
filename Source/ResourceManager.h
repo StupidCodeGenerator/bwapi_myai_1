@@ -15,6 +15,8 @@ public:
 
 	std::map<int, MineralExtend*> m_MineralsMap;
 
+	int m_SystemTime;
+
 	int OnInit();
 
 	int OnUpdate();

@@ -42,3 +42,11 @@ std::list<TileEx> TileEx::GetBuildableNeighbor() {
 
 	return output;
 }
+
+bool TileEx::operator < (TileEx other) {
+	return this->m_DistanceToCommandCenter < other.m_DistanceToCommandCenter;
+}
+
+bool TileEx::operator > (TileEx other) {
+	return this->m_DistanceToCommandCenter > other.m_DistanceToCommandCenter;
+}

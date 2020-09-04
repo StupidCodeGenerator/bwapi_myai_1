@@ -16,6 +16,8 @@ int UnitBrain_CommandCenter::OnInit(int unitID) {
 		return FUCK_ERR__NULL_UNIT;
 	}
 
+	m_OrderedTilesMap.clear();
+
 	RefreshBuildableTiles();
 
 	return FUCK_SUCCESS;
@@ -49,7 +51,14 @@ void UnitBrain_CommandCenter::RefreshBuildableTiles() {
 	toRemove.clear();
 	std::map<int, TileEx>::iterator tileIT = m_BuildableTilesMap.begin();
 	for (tileIT; tileIT != m_BuildableTilesMap.end(); tileIT++) {
-		if (tileIT->second.DistanceToUnit(unit) < COMMAND_CENTER_MIN_BUILD_DISTANCE) {
+
+		tileIT->second.m_DistanceToCommandCenter = tileIT->second.DistanceToUnit(unit);
+		int key = tileIT->second.GetKey();
+
+		if (m_OrderedTilesMap.find(key) != m_OrderedTilesMap.end()) {
+			toRemove.push_back(tileIT->first);
+		}
+		else if (tileIT->second.m_DistanceToCommandCenter < COMMAND_CENTER_MIN_BUILD_DISTANCE) {
 			toRemove.push_back(tileIT->first);
 		}
 		else {
@@ -76,12 +85,92 @@ void UnitBrain_CommandCenter::RefreshBuildableTiles() {
 	}
 
 	// 然后需要去掉SCV采矿路线上的地图块
-	// TODO 
+	// TODO : 目前来说, 仅仅是"不要在离矿太近的地方以及离主基地太近的地方建造"就已经实现了这个功能
+	// 但是,对于那种矿离得比较远的地形, 可能会出现问题. 
+	// 目前就先这样
 
 	std::list<int>::iterator removeIT = toRemove.begin();
 	for (removeIT; removeIT != toRemove.end(); removeIT++) {
 		m_BuildableTilesMap.erase(*removeIT);
 	}
+
+	// 最后, 放到m_BuildableTiles_SortByDistance 里面, 进行排序
+	// 前面在进行过滤的时候, 已经设置了 DistanceToCommandCenter
+	m_SortedBuildableTilesList.clear();
+	std::map<int, TileEx>::iterator finalIT = m_BuildableTilesMap.begin();
+	for (finalIT; finalIT != m_BuildableTilesMap.end(); finalIT++) {
+		m_SortedBuildableTilesList.push_back(finalIT->second);
+	}
+	m_SortedBuildableTilesList.sort();
+}
+
+
+
+// 按照从近到远的顺序依次给出就好, 当SCV开始建造的时候, 会刷新Buildable
+// 返回的要给一个"占用"标
+// 由于BuildableTiles 可能会被刷新, 所以需要一个单独的map来存那些被占用的位置
+// 就是说, 已经被取走预定, 虽然可能还没有建造, 但是已经有可能要建造了
+// 如果发生了建造图块用光的情况, 那就是二阶逻辑了.现在先不管
+BWAPI::TilePosition UnitBrain_CommandCenter::GetBuildPosition(int tileWidth, int tileHeight) {
+	std::list<TileEx>::iterator fuckIT = m_SortedBuildableTilesList.begin();
+	for (fuckIT; fuckIT != m_SortedBuildableTilesList.end(); fuckIT++) {
+		std::list<int> buildableTiles = GetTileKeysIfAreaBuildable(*fuckIT, tileWidth, tileHeight);
+		if (buildableTiles.empty()) {
+			continue;
+		}
+		else {
+			std::list<int>::iterator tileIT = buildableTiles.begin();
+			for (tileIT; tileIT != buildableTiles.end(); tileIT++) {
+				int tileKey = *tileIT;
+				std::map<int, TileEx>::iterator mapIT = m_BuildableTilesMap.find(tileKey);
+				if (mapIT != m_BuildableTilesMap.end()) {
+					m_OrderedTilesMap.insert(make_pair(mapIT->first, mapIT->second));
+				}
+			}
+			return (*fuckIT).m_TilePosition;
+		}
+	}
+
+	// *这里进入二阶逻辑
+	// 暂时先这么写
+	return BWAPI::TilePosition(0, 0);  // that means empty, and i never use the 0,0 position
+}
+
+// 区域可建造
+bool UnitBrain_CommandCenter::IsAreaBuildable(TileEx tile, int tileWidth, int tileHeight) {
+	return GetTileKeysIfAreaBuildable(tile, tileWidth, tileHeight).size() > 0;
+}
+
+
+//	图块是可建造
+bool UnitBrain_CommandCenter::IsTileBuildable(int tileKey) {
+	return m_BuildableTilesMap.find(tileKey) == m_BuildableTilesMap.end() || m_OrderedTilesMap.find(tileKey) != m_BuildableTilesMap.end();
+}
+
+//
+//	如果没有找到返回emptylist
+//
+std::list<int> UnitBrain_CommandCenter::GetTileKeysIfAreaBuildable(TileEx tile, int tileWidth, int tileHeight) {
+	std::list<int> output;
+	int initX = tile.m_TilePosition.x;
+	int initY = tile.m_TilePosition.y;
+	for (int x = initX; x < initX + tileWidth; x++) {
+		for (int y = initY; y < initY + tileHeight; y++) {
+			TileEx temp;
+			temp.OnInit(BWAPI::TilePosition(x, y));
+			int key = temp.GetKey();
+			if (IsTileBuildable(key)) {
+				// 不可建造
+				output.clear();
+				return output;
+			}
+			else {
+				output.push_back(key);
+			}
+		}
+	}
+
+	return output;
 }
 
 
@@ -126,14 +215,10 @@ int UnitBrain_CommandCenter::OnDraw() {
 		return FUCK_ERR__NULL_UNIT;
 	}
 
-	std::map<int, TileEx>::iterator fuckIT = m_BuildableTilesMap.begin();
-	for (fuckIT; fuckIT != m_BuildableTilesMap.end(); fuckIT++) {
-		BWAPI::TilePosition tp = fuckIT->second.m_TilePosition;
-		BWAPI::Broodwar->drawBoxMap(
-			tp.x*TILE_SIZE, tp.y*TILE_SIZE,
-			(tp.x + 1)*TILE_SIZE, (tp.y + 1) *TILE_SIZE,
-			BWAPI::Colors::Grey);
-		BWAPI::Broodwar->drawTextMap(tp.x*TILE_SIZE, tp.y*TILE_SIZE, "%u", fuckIT->second.GetKey());
+	std::list<TileEx>::iterator fuckIT = m_SortedBuildableTilesList.begin();
+	for (fuckIT; fuckIT != m_SortedBuildableTilesList.end(); fuckIT++) {
+		BWAPI::TilePosition tp = (*fuckIT).m_TilePosition;
+		BWAPI::Broodwar->drawDotMap(tp.x*TILE_SIZE, tp.y*TILE_SIZE, BWAPI::Colors::Grey);
 	}
 
 	std::list<int>::iterator mineralIT = m_Minerals.begin();
@@ -162,8 +247,8 @@ int UnitBrain_CommandCenter::OnDraw() {
 //	递归警告, 扩张可建造图块集合
 //	调用前请将recursiveCount归零
 //
-void UnitBrain_CommandCenter::ExtendBuildableTiles_Recursive(TileEx seed, BWAPI::Unit cc){
-	
+void UnitBrain_CommandCenter::ExtendBuildableTiles_Recursive(TileEx seed, BWAPI::Unit cc) {
+
 	std::list<TileEx> output = seed.GetBuildableNeighbor();
 	std::list<TileEx>::iterator fuckIT = output.begin();
 

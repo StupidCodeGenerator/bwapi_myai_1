@@ -59,10 +59,16 @@ int MyAiModule::GetUnitCount(BWAPI::UnitType unitType) {
 
 int MyAiModule::OnUpdate() {
 
+	DWORD nowTime = GetTickCount();
+	if (nowTime - m_Last_10s_UpdateTime > 10000) {
+		OnUpdate_10s();
+		m_Last_10s_UpdateTime = nowTime;
+	}
+
 	if (m_pUnitBrainManager) {
 		m_pUnitBrainManager->OnUpdate();
 	}
-
+	
 	if (m_pResourceManager) {
 		m_pResourceManager->OnUpdate();
 	}
@@ -70,6 +76,27 @@ int MyAiModule::OnUpdate() {
 	return FUCK_SUCCESS;
 }
 
+
+//
+//	10秒钟调用一次
+//
+int MyAiModule::OnUpdate_10s() {
+	if (m_Last_10s_UpdateTime > 0) {
+		// 计算人口增长率, 矿产增长率, 燃气增长率(先不算)
+		int curSupply = Broodwar->self()->supplyUsed();
+		int curMine = Broodwar->self()->gatheredMinerals();
+		
+		m_SupplyGrowthList_10s.push_front(curSupply);
+		m_MineGrowthList_10s.push_front(curMine);
+		
+		string debugStr = "Update10s: ";
+		debugStr.append(to_string(curSupply) + ", ");
+		debugStr.append(to_string(curMine) + ", ");
+		onSendText(debugStr);
+	}
+
+	return FUCK_SUCCESS;
+}
 
 
 void MyAiModule::onStart() {
@@ -81,6 +108,9 @@ void MyAiModule::onStart() {
 
 	this->m_pResourceManager = new ResourceManager();
 	this->m_pResourceManager->OnInit();
+
+	m_SupplyGrowthList_10s.clear();
+	m_MineGrowthList_10s.clear();
 
 	// Enable the UserInput flag, which allows us to control the bot and type messages.
 	Broodwar->enableFlag(Flag::UserInput);
@@ -158,15 +188,9 @@ void MyAiModule::onUnitHide(BWAPI::Unit unit) {
 // 某单位被创建, 在建造中的也叫创建, 包括在兵营中正在读条的枪兵.
 void MyAiModule::onUnitCreate(BWAPI::Unit unit) {
 	onSendText("MyAiModule::onUnitCreate ");
-	if (unit && unit->getPlayer()->getID() == SELF->getID()) {
-		if (m_pUnitBrainManager) {
-			m_pUnitBrainManager->CreateBrain(unit);
-		}
-	}
 
-	// TEST
 	if (m_pUnitBrainManager) {
-		m_pUnitBrainManager->RefreshCommmandCenterMapInfo();
+		m_pUnitBrainManager->OnUnitCreate(unit);
 	}
 }
 
@@ -193,8 +217,6 @@ void MyAiModule::onUnitComplete(BWAPI::Unit unit) {
 
 void MyAiModule::LogOnScreen() {
 
-	Broodwar->drawTextScreen(10, 10, "Tiles: %d, %d", Broodwar->mapWidth(), Broodwar->mapHeight());
-
 	if (m_pUnitBrainManager) {
 		m_pUnitBrainManager->OnDraw();
 	}
@@ -202,6 +224,36 @@ void MyAiModule::LogOnScreen() {
 	if (m_pResourceManager) {
 		m_pResourceManager->OnDraw();
 	}
+
+	int c = 0;
+	string supplyDebug = "Supply : ";
+	std::list<int>::iterator supIT = m_SupplyGrowthList_10s.begin();
+	for (supIT; supIT != m_SupplyGrowthList_10s.end(); supIT++) {
+		if (c > 10) {
+			break;
+		}
+		else {
+			c++;
+		}
+		supplyDebug.append(to_string(*supIT) + ",");
+	}
+
+	Broodwar->drawTextScreen(0, 0, supplyDebug.c_str());
+
+	c = 0;
+	string mineralsDebug = "Minerals : ";
+	std::list<int>::iterator minIT = m_MineGrowthList_10s.begin();
+	for (minIT; minIT != m_MineGrowthList_10s.end(); minIT++) {
+		if (c > 10) {
+			break;
+		}
+		else {
+			c++;
+		}
+		mineralsDebug.append(to_string(*minIT) + ",");
+	}
+
+	Broodwar->drawTextScreen(0, 10, mineralsDebug.c_str());
 
 	//for (auto &u : Broodwar->getAllUnits()) {
 	//	Broodwar->drawTextMap(u->getPosition().x, u->getPosition().y, "%d", u->getID());

@@ -20,4 +20,13 @@ public:
 	// 这个可以用来递归扩充可建造集合
 	std::list<TileEx> GetBuildableNeighbor();
 
+	// CommandCenter专用的排序功能, 需要先存储了到CommandCenter的距离, 然后才能排序
+	// 否则调用后, 结果无效
+	
+	int m_DistanceToCommandCenter = 0xFFFF;                  // 到CommandCenter的距离
+	
+	// 排序使用的操作符重载
+	bool operator < (TileEx other);
+	bool operator > (TileEx other);
+
 };

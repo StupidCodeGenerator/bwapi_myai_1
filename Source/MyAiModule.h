@@ -26,6 +26,9 @@ public:
 
 	ResourceManager* m_pResourceManager;
 
+	std::list<int> m_SupplyGrowthList_10s;                     // 10秒钟记一次,人口增长
+	std::list<int> m_MineGrowthList_10s;                       // 10秒钟记一次,水晶增长
+
 	//	尝试查找某矿, 找不到返回NULL(这个包含类型判断)
 	BWAPI::Unit FindMinerals(int unitID);
 
@@ -42,6 +45,11 @@ public:
 	//	调用的太快了会产生很多问题.
 	//
 	int OnUpdate();
+
+	// 10秒钟进行一次的Update
+	DWORD m_Last_10s_UpdateTime = 0; // 上一次调用此函数的时间
+	int OnUpdate_10s();
+
 
 	// Virtual functions for cm_UnitMap leave these as they are.
 	virtual void onStart();
